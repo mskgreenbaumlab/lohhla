@@ -1,5 +1,3 @@
-#!/usr/bin/env Rscript
-
 # before running
 # ml BEDTools/2.26.0-foss-2016b
 # ml SAMtools/1.3.1-foss-2016b
@@ -8,49 +6,50 @@
 # ml TracerX-Picard-GATK/0.1-Java-1.7.0_80
 # ml Jellyfish/2.2.6-foss-2016b
 
-## rewritten to only take a normal BAM and tumor BAM, with no paths
-## outputDir is the workDir
-
-
+library(seqinr)
 library(optparse)
+library(Rsamtools)
+library(beeswarm)
+library(zoo)
+library(Biostrings)
 option_list = list(
-  make_option(c("-id", "--patientId"), type="character", default=NULL,   ## this argument is meant to be required
+  make_option(c("-i", "--patientId"), type="character", default=NULL, 
               help="patient ID", metavar="character"),
   make_option(c("-o", "--outputDir"), type="character", default=NULL, 
               help="location of output directory", metavar="character"),
-  make_option(c("-nBAM", "--normalBAMfile"), type="character", default=NULL,    
+  make_option(c("-n", "--normalBAMfile"), type="character", default=NULL, 
               help="normal BAM file\n\t\tcan be FALSE to run without normal sample", metavar="character"),
-  make_option(c("-tBAM", "--tumorBAMfile"), type="character", default=NULL,    
-              help="tumor BAM file", metavar="character"),
-  make_option(c("-hla", "--hlaPath"), type="character", default=NULL, 
+  make_option(c("-b", "--BAMDir"), type="character", default=NULL, 
+              help="location of all BAMs to test", metavar="character"),
+  make_option(c("-a", "--hlaPath"), type="character", default=NULL, 
               help="location to patient HLA calls", metavar="character"),
-  make_option(c("-hlaLoc", "--HLAfastaLoc"), type="character", default='~/lohhla/data/hla_all.fasta', 
+  make_option(c("-l", "--HLAfastaLoc"), type="character", default='~/lohhla/data/hla_all.fasta', 
               help="location of HLA FASTA [default= %default]", metavar="character"),
-  make_option(c("-cn", "--CopyNumLoc"), type="character", default="FALSE", 
+  make_option(c("-c", "--CopyNumLoc"), type="character", default="FALSE", 
               help="location to patient purity and ploidy output\n\t\tcan be FALSE to only estimate allelic imbalance", metavar="character"),
-  make_option(c("-ov", "--overrideDir"), type="character", default='FALSE', 
+  make_option(c("-v", "--overrideDir"), type="character", default='FALSE', 
               help="location of flagstat information if already run [default= %default]", metavar="character"),
-  make_option(c("-mc", "--minCoverageFilter"), type="numeric", default=30,
+  make_option(c("-m", "--minCoverageFilter"), type="numeric", default=30,
               help="minimum coverage at mismatch site [default= %default]", metavar="character"),
-  make_option(c("-kmer", "--kmerSize"), type="numeric", default=50, 
+  make_option(c("-k", "--kmerSize"), type="numeric", default=50, 
               help="size of kmers to fish with [default= %default]", metavar="character"),
-  make_option(c("-mm", "--numMisMatch"), type="numeric", default=1, 
+  make_option(c("-s", "--numMisMatch"), type="numeric", default=1, 
               help="number of mismatches allowed in read to map to HLA allele [default= %default]", metavar="character"),
-  make_option(c("-ms", "--mappingStep"), type="logical", default=TRUE, 
+  make_option(c("-p", "--mappingStep"), type="logical", default=TRUE, 
               help="does mapping to HLA alleles need to be done [default= %default]", metavar="character"),
-  make_option(c("-fs", "--fishingStep"), type="logical", default=TRUE, 
+  make_option(c("--fishingStep"), type="logical", default=TRUE, 
               help="if mapping is performed, also look for fished reads matching kmers of size kmerSize [default= %default]", metavar="character"),
-  make_option(c("-ps", "--plottingStep"), type="logical", default=TRUE, 
+  make_option(c("--plottingStep"), type="logical", default=TRUE, 
               help="are plots made [default= %default]", metavar="character"),
-  make_option(c("-cs", "--coverageStep"), type="logical", default=TRUE, 
-            help="are coverage differences analyzed [default= %default]", metavar="character"),
-  make_option(c("-cu", "--cleanUp"), type="logical", default=TRUE,            
+  make_option(c("--coverageStep"), type="logical", default=TRUE, 
+              help="are coverage differences analyzed [default= %default]", metavar="character"),
+  make_option(c("--cleanUp"), type="logical", default=TRUE, 
               help="remove temporary files [default= %default]", metavar="character"),
-  make_option(c("-no", "--novoDir"), type="character", default='', 
+  make_option(c("-d", "--novoDir"), type="character", default='', 
               help="path to novoalign executable [default= %default]", metavar="character"),
-  make_option(c("-ga", "--gatkDir"), type="character", default='', 
+  make_option(c("-g", "--gatkDir"), type="character", default='', 
               help="path to GATK executable [default= %default]", metavar="character"),
-  make_option(c("-ex", "--HLAexonLoc"), type="character", default='~/lohhla/data/hla.dat', 
+  make_option(c("-e", "--HLAexonLoc"), type="character", default='~/lohhla/data/hla.dat', 
               help="HLA exon boundaries for plotting [default= %default]", metavar="character"),
   make_option(c("-w", "--ignoreWarnings"), type="logical", default=TRUE, 
               help="continue running with warnings [default= %default]", metavar="character")
@@ -74,9 +73,9 @@ print(opt)
 ##########################
 
 full.patient      <- opt$patientId
-workDir           <- opt$outputDir     ### NOTE: outputDir is the workDir
+workDir           <- opt$outputDir
 normalBAMfile     <- opt$normalBAMfile
-tumorBAMfile      <- opt$tumorBAMfile
+BAMDir            <- opt$BAMDir
 hlaPath           <- opt$hlaPath
 HLAfastaLoc       <- opt$HLAfastaLoc
 CopyNumLoc        <- opt$CopyNumLoc
@@ -94,9 +93,10 @@ coverageStep      <- opt$coverageStep
 plottingStep      <- opt$plottingStep
 ignoreWarnings    <- opt$ignoreWarnings
 
+#print(coverageStep)
+#print(plottingStep)
 
-
-if (is.null(opt$tumorBAMfile) | is.null(opt$outputDir) | is.null(opt$hlaPath) | is.null(opt$HLAfastaLoc)){
+if (is.null(opt$BAMDir) | is.null(opt$outputDir) | is.null(opt$hlaPath) | is.null(opt$HLAfastaLoc)){
   print_help(opt_parser)
   stop("Missing arguments.\n", call.=FALSE)  
 }
@@ -120,40 +120,40 @@ require(Rsamtools, quietly = TRUE)
 # inputs #
 ###########
 
-## interactive           <- FALSE
-## if(interactive)
-## {
-##   # if you wish to run script interactively, then alter parameters below
-##   opt<-parse_args(opt_parser,c('--patientId', 'G_K107'
-##                                , '--outputDir', '/camp/lab/swantonc/working/mcgrann/projects/LOHproject/kidney_run/G_K107_full/'
-##                                , '--normalBAMfile', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/DE_DUPED/N1d1ex1.bam'
-##                                , '--BAMDir', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/DE_DUPED/'
-##                                , '--hlaPath', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/POLYSOLVER/HLA_Type/winners.hla.txt'
-##                                , '--HLAfastaLoc', '/farm/home/lr-tct-lif/wilson52/installs/polysolver/data/abc_complete.fasta'
-##                                , '--CopyNumLoc', '/camp/lab/swantonc/working/mcgrann/projects/LOHproject/kidney_run/G_K107/copyNumSolutions.txt'
-##                                , '--mappingStep', 'TRUE'
-##                                , '--cleanUp', 'TRUE'
-##                                , '--overrideDir', '/camp/lab/swantonc/working/mcgrann/projects/LOHproject/kidney_run/G_K107/flagstat/'
-##                                , '--gatkDir', '/camp/apps/eb/software/TracerX-Picard-GATK/0.1-Java-1.7.0_80/bin/'
-##                                , '--novoDir', '/camp/apps/eb/software/novoalign/3.07.00/bin/'))
-## 
-##   opt<-parse_args(opt_parser,c('--patientId', 'G_K107'
-##                                , '--outputDir', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/'
-##                                , '--normalBAMfile', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/BAMs/B1d1xx1.bam'
-##                                , '--BAMDir', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/BAMs/'
-##                                , '--hlaPath', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/POLYSOLVER/HLA_Type/winners.hla.txt'
-##                                , '--HLAfastaLoc', '/farm/home/lr-tct-lif/wilson52/installs/polysolver/data/abc_complete.fasta'
-##                                , '--CopyNumLoc', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/copyNumSolutions.txt'
-##                                , '--mappingStep', 'TRUE'
-##                                , '--cleanUp', 'TRUE'
-##                                , '--overrideDir', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/flagstat/'
-##                                , '--gatkDir', '/camp/apps/eb/software/TracerX-Picard-GATK/0.1-Java-1.7.0_80/bin/'
-##                                , '--novoDir', '/camp/apps/eb/software/novoalign/3.07.00/bin/'))
-##   
-## }
+interactive           <- FALSE
+if(interactive)
+{
+  # if you wish to run script interactively, then alter parameters below
+  opt<-parse_args(opt_parser,c('--patientId', 'G_K107'
+                               , '--outputDir', '/camp/lab/swantonc/working/mcgrann/projects/LOHproject/kidney_run/G_K107_full/'
+                               , '--normalBAMfile', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/DE_DUPED/N1d1ex1.bam'
+                               , '--BAMDir', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/DE_DUPED/'
+                               , '--hlaPath', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/POLYSOLVER/HLA_Type/winners.hla.txt'
+                               , '--HLAfastaLoc', '/farm/home/lr-tct-lif/wilson52/installs/polysolver/data/abc_complete.fasta'
+                               , '--CopyNumLoc', '/camp/lab/swantonc/working/mcgrann/projects/LOHproject/kidney_run/G_K107/copyNumSolutions.txt'
+                               , '--mappingStep', 'TRUE'
+                               , '--cleanUp', 'TRUE'
+                               , '--overrideDir', '/camp/lab/swantonc/working/mcgrann/projects/LOHproject/kidney_run/G_K107/flagstat/'
+                               , '--gatkDir', '/camp/apps/eb/software/TracerX-Picard-GATK/0.1-Java-1.7.0_80/bin/'
+                               , '--novoDir', '/camp/apps/eb/software/novoalign/3.07.00/bin/'))
+
+  opt<-parse_args(opt_parser,c('--patientId', 'G_K107'
+                               , '--outputDir', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/'
+                               , '--normalBAMfile', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/BAMs/B1d1xx1.bam'
+                               , '--BAMDir', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/BAMs/'
+                               , '--hlaPath', '/camp/project/tracerX/working/CRENAL/OUTPUT/G_K107/Rabbit_Hole_Exome/MERGED/POLYSOLVER/HLA_Type/winners.hla.txt'
+                               , '--HLAfastaLoc', '/farm/home/lr-tct-lif/wilson52/installs/polysolver/data/abc_complete.fasta'
+                               , '--CopyNumLoc', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/copyNumSolutions.txt'
+                               , '--mappingStep', 'TRUE'
+                               , '--cleanUp', 'TRUE'
+                               , '--overrideDir', '/camp/lab/swantonc/working/rosentr/projects/PolySolverLOH/test/test-renal/G_K107-v2/flagstat/'
+                               , '--gatkDir', '/camp/apps/eb/software/TracerX-Picard-GATK/0.1-Java-1.7.0_80/bin/'
+                               , '--novoDir', '/camp/apps/eb/software/novoalign/3.07.00/bin/'))
+  
+}
 
 print(full.patient)
-system('echo ${SLURM_JOBID}')
+system('echo ${LSB_JOBINDEX}')
 
 figureDir <- paste(workDir,"/Figures",sep="")
 
@@ -239,47 +239,23 @@ create.kmer.file <- function(workDir, kmerSize, HLAfastaLoc){
 
 }
 
-## get.partially.matching.reads <- function(workDir, regionDir, BAMDir, BAMfile){
-## 
-##   kmerFile <- paste(workDir, '/', kmerSize, 'mer_uniq', sep = '')
-## 
-##   # add header
-##   cmd <- paste('samtools view -H ', BAMDir, '/', BAMfile, ' > ', regionDir, '/fished.sam', sep = '')
-##   system(cmd)
-## 
-##   # fish partially matching reads
-##   cmd <- paste('samtools view ', BAMDir, '/', BAMfile, ' | grep -F -f ', kmerFile, ' >> ', regionDir, '/fished.sam', sep = '')
-##   system(cmd)
-## 
-##   # convert to fastq
-##   cmd <- paste('java -jar ', GATKDir, '/SamToFastq.jar I=', regionDir, '/fished.sam F=', regionDir, '/fished.1.fastq F2=', regionDir, '/fished.2.fastq VALIDATION_STRINGENCY=SILENT', sep = '')
-##   system(cmd)
-## 
-## }
-
-## removing the need for BAMDir
-
-get.partially.matching.reads <- function(workDir, regionDir, BAMfile){
+get.partially.matching.reads <- function(workDir, regionDir, BAMDir, BAMfile){
 
   kmerFile <- paste(workDir, '/', kmerSize, 'mer_uniq', sep = '')
 
   # add header
-  cmd <- paste('samtools view -H ', BAMfile, ' > ', regionDir, '/fished.sam', sep = '')
+  cmd <- paste('samtools view -H ', BAMDir, '/', BAMfile, ' > ', regionDir, '/fished.sam', sep = '')
   system(cmd)
 
   # fish partially matching reads
-  cmd <- paste('samtools view ', BAMfile, ' | grep -F -f ', kmerFile, ' >> ', regionDir, '/fished.sam', sep = '')
+  cmd <- paste('samtools view ', BAMDir, '/', BAMfile, ' | grep -F -f ', kmerFile, ' >> ', regionDir, '/fished.sam', sep = '')
   system(cmd)
 
   # convert to fastq
-  cmd <- paste('java -jar ', GATKDir, '/SamToFastq.jar I=', regionDir, '/fished.sam F=', regionDir, '/fished.1.fastq F2=', regionDir, '/fished.2.fastq VALIDATION_STRINGENCY=SILENT', sep = '')
+  cmd <- paste('java -jar ', GATKDir, ' SamToFastq I=', regionDir, '/fished.sam F=', regionDir, '/fished.1.fastq F2=', regionDir, '/fished.2.fastq VALIDATION_STRINGENCY=SILENT', sep = '')
   system(cmd)
 
 }
-
-
-
-
 
 combine.fastqs <- function(chr6.f1, chr6.f2, fished.f1, fished.f2){
 
@@ -421,62 +397,8 @@ getMisMatchPositionsPairwiseAlignment <- function(alignment, chunksize=60, retur
 }
 
 
-## Original code
-## 
-## getUniqMapReads <- function(workDir
-##                             ,BAMDir
-##                             ,override=FALSE
-##                             ,overrideDir = NULL
-## )
-## {
-## 
-##   if(!override){
-##     outDir     <- paste(workDir, '/flagstat/', sep = '')
-##     if( !file.exists(outDir)){
-##       if( !dir.create(outDir, recursive = TRUE) ){
-##         stop(paste("Unable to create directory: ", outDir, "!\n", sep = ''))
-##       }
-##     }
-## 
-##     BAMs       <- list.files(BAMDir, pattern = 'bam$', full.names = TRUE)
-## 
-##     for(BAM in BAMs){
-##       region <- unlist(strsplit(BAM, split = '/'))[length(unlist(strsplit(BAM, split = '/')))]
-##       cmd    <- paste('samtools flagstat ', BAM, ' > ', outDir, region, '.proc.flagstat', sep = '')
-##       system(cmd)
-##     }  
-##   }    
-## 
-##   if(override){
-## 
-##     outDir <- overrideDir
-## 
-##   }
-##   
-##   flagStatRegions  <- list.files(outDir,pattern=".proc.flagstat$")
-##   if(length(flagStatRegions) == 0){
-##     stop('Either run flagstat or do not override.')
-##   }  
-##   
-##   UniqMapReads <- list()
-##   
-##   for (flagStatRegion in flagStatRegions)
-##   {
-##     
-##     UniqMapReads[[unlist(strsplit(flagStatRegion,split="\\."))[1]]] <-as.numeric(read.table(paste(outDir, '/', flagStatRegion,sep=""),stringsAsFactors=FALSE,header=FALSE,nrows =1)[,1])    
-##     
-##   }
-##   
-##   return(UniqMapReads)
-##   
-## }
-
-
-
-## re-write in order to take character vector of BAMs
-
 getUniqMapReads <- function(workDir
-                            ,BAMs
+                            ,BAMDir
                             ,override=FALSE
                             ,overrideDir = NULL
 )
@@ -486,9 +408,11 @@ getUniqMapReads <- function(workDir
     outDir     <- paste(workDir, '/flagstat/', sep = '')
     if( !file.exists(outDir)){
       if( !dir.create(outDir, recursive = TRUE) ){
-        stop(paste("Unable to create directory: ", outDir, "!\n", sep = ''))
+        stop(paste("Unable to create directory: ",outDir, "!\n", sep = ''))
       }
     }
+
+    BAMs       <- list.files(BAMDir, pattern = 'bam$', full.names = TRUE)
 
     for(BAM in BAMs){
       region <- unlist(strsplit(BAM, split = '/'))[length(unlist(strsplit(BAM, split = '/')))]
@@ -503,7 +427,7 @@ getUniqMapReads <- function(workDir
 
   }
   
-  flagStatRegions  <- list.files(outDir, pattern=".proc.flagstat$")
+  flagStatRegions  <- list.files(outDir,pattern=".proc.flagstat$")
   if(length(flagStatRegions) == 0){
     stop('Either run flagstat or do not override.')
   }  
@@ -520,8 +444,6 @@ getUniqMapReads <- function(workDir
   return(UniqMapReads)
   
 }
-
-
 
 funCalcN_withBAF <- function(logRSites,bafSites,tumorPloidy,tumorPurity,gamma)
 {
@@ -565,8 +487,8 @@ if(!dir.exists(figureDir))
   dir.create(figureDir,recursive=TRUE)
 }
 
-params <- list(full.patient, workDir, hlaPath, normalBAMfile, tumorBAMfile, HLAfastaLoc, CopyNumLoc, GATKDir, NOVODir)
-names(params) <- c('full.patient', 'workDir', 'hlaPath', 'normalBAMfile', 'tumorBAMfile', 'HLAfastaLoc', 'CopyNumLoc', 'GATKDir', 'NOVODir')
+params <- list(full.patient, workDir, hlaPath, normalBAMfile, BAMDir, HLAfastaLoc, CopyNumLoc, GATKDir, NOVODir)
+names(params) <- c('full.patient', 'workDir', 'hlaPath', 'normalBAMfile', 'BAMDir', 'HLAfastaLoc', 'CopyNumLoc', 'GATKDir', 'NOVODir')
 document.params(params, log.name)
 
 
@@ -575,20 +497,14 @@ document.params(params, log.name)
 # get HLA-specific mappings # 
 #############################
 
-## put both tumor and normal BAM here; keeps the same data structures --- probably a bit hacky
+BAMfiles  <- list.files(BAMDir, pattern = '.bam$')
 
-## originally 
-## BAMfiles  <- list.files(tumorBAMfile, pattern = '.bam$')
+if(length(BAMfiles)<2)
+{
+  stop(paste('Cannot find 2 bam files within ',BAMDir))
+}
 
-BAMfiles  <- c(tumorBAMfile, normalBAMfile)
-
-
-## if(length(BAMfiles)<1)
-## {
-##     stop(paste('Cannot find tumor BAM'))
-## }
-
-regions   <- sapply(BAMfiles, FUN =function(x) {return(unlist(strsplit(x, split = '.bam'))[1])})   ## contains both tumor and normal now
+regions   <- sapply(BAMfiles, FUN =function(x) {return(unlist(strsplit(x, split = '.bam'))[1])})
 
 hlaAlleles <- read.table(hlaPath, sep = '\t', header = FALSE, as.is = TRUE)
 if(ncol(hlaAlleles) == 3){
@@ -617,40 +533,23 @@ if(!all(hlaAlleles %in% names(hlaFasta))) {
 
 # check for homozygous alleles here to save time on mapping step.
 # also figure out if hla names will be uniformly 'hla_x'
-n_hla_a = length(grep('hla_a', x = hlaAlleles))
-n_hla_b = length(grep('hla_b', x = hlaAlleles))
-n_hla_c = length(grep('hla_c', x = hlaAlleles))
-
-if(n_hla_a== 1){
+if(length(grep('hla_a', x = hlaAlleles))== 1){
   write.table(paste('\nHomozygous for HLA-A -- not going to see any LOH here.', '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
   hlaAlleles <- hlaAlleles[-grep('hla_a', x = hlaAlleles)]
 }
 
-if(n_hla_b== 1){
+if(length(grep('hla_b', x = hlaAlleles))== 1){
   write.table(paste('\nHomozygous for HLA-B -- not going to see any LOH here.', '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
   hlaAlleles <- hlaAlleles[-grep('hla_b', x = hlaAlleles)]
 }
 
-if(n_hla_c== 1){
+if(length(grep('hla_c', x = hlaAlleles))== 1){
   write.table(paste('\nHomozygous for HLA-C -- not going to see any LOH here.', '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
   hlaAlleles <- hlaAlleles[-grep('hla_c', x = hlaAlleles)]
 }
 
-if (n_hla_a ==1 && n_hla_b == 1 && n_hla_c == 1) {
-  message('All HLA alleles are homozygous. No LOH analysis can be performed.')
-  outputFilename = paste0(workDir, '/', full.patient,".All_HLA_alleles_homozygous.DNA.HLAlossPrediction_CI.txt")
-  fileMessage = paste0('All HLA alleles are homozygous. No LOH analysis can be performed.')
-  write.table(fileMessage,file=outputFilename,quote=FALSE,col.names=FALSE,row.names=FALSE)
-  quit(status=0)
-}
-
-## I would be surprised if this conditional was hit, but we'll keep it in
 if(length(hlaAlleles) == 0){
-  message('No suitable HLA alleles!')
-  outputFilename = paste0(workDir, '/', full.patient,"No_Suitable_HLA_alleles.DNA.HLAlossPrediction_CI.txt")
-  fileMessage = paste0('No suitable HLA alleles! No LOH analysis can be performed.')
-  write.table(fileMessage,file=outputFilename,quote=FALSE,col.names=FALSE,row.names=FALSE)
-  quit(status=0)
+  stop('No suitable HLA alleles!')
 }
 
 if(mapping.step){
@@ -675,13 +574,7 @@ if(mapping.step){
     
     BAMid <- unlist(strsplit(BAMfile, split = '.bam'))[1]
     
-    ## I have no idea why this is used here...
-
-    ## if(paste(BAMDir, '/', BAMfile, sep = '') == normalBAMfile){
-    ##   normalName <- BAMid
-    ## }
-
-    if(paste(BAMfile, sep = '') == normalBAMfile){
+    if(paste(BAMDir, '/', BAMfile, sep = '') == normalBAMfile){
       normalName <- BAMid
     }
 
@@ -690,27 +583,26 @@ if(mapping.step){
     regionDir <- paste(workDir, '/', BAMid, sep = '')
     if(!dir.exists(regionDir))
     {
-      dir.create(regionDir, recursive=TRUE)
+      dir.create(regionDir,recursive=TRUE)
     }
     
     #extract HLA possible reads from BAM file
     write.table(paste('\nextract HLA possible reads from BAM file at ', date(), '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
 
     # chr 6 and contigs
-    samtoolsCMD <- paste("samtools view -H ", BAMfile, " > " , regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view -H ", BAMDir, '/', BAMfile, " > " , regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6:29909037-29913661 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6:29909037-29913661 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6:31321649-31324964 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6:31321649-31324964 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
-
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6:31236526-31239869 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6:31236526-31239869 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
 
@@ -724,44 +616,44 @@ if(mapping.step){
     # write.table(paste(samtoolsCMD, '\n', sep = ''), file = log.name, row.names=FALSE, col.names=FALSE, quote=FALSE, append = TRUE)
     # system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_apd_hap1 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_apd_hap1 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
 
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_cox_hap2 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_cox_hap2 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_dbb_hap3 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_dbb_hap3 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_mann_hap4 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_mann_hap4 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_mcf_hap5 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_mcf_hap5 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_qbl_hap6 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_qbl_hap6 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
-    samtoolsCMD <- paste("samtools view ", BAMfile, " 6_ssto_hap7 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
+    samtoolsCMD <- paste("samtools view ", BAMDir, '/', BAMfile, " chr6_ssto_hap7 >> ",regionDir,"/",BAMid,".chr6region.sam",sep="")
     write.table(samtoolsCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samtoolsCMD)
     
     # turn into fastq -- this step has an error with unpaired mates, but seems to work ok just the same (VALIDATION_STRINGENCY=SILENT)
     write.table(paste('\nturn into fastq at ', date(), '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
-    samToFastQ <- paste("java -jar ",GATKDir,"/SamToFastq.jar ","I=",regionDir,"/",BAMid,".chr6region.sam"," F=",regionDir,"/",BAMid,".chr6region.1.fastq"," F2=",regionDir,"/",BAMid,".chr6region.2.fastq"," VALIDATION_STRINGENCY=SILENT",sep="")
+    samToFastQ <- paste("java -jar ",GATKDir," SamToFastq ","I=",regionDir,"/",BAMid,".chr6region.sam"," F=",regionDir,"/",BAMid,".chr6region.1.fastq"," F2=",regionDir,"/",BAMid,".chr6region.2.fastq"," VALIDATION_STRINGENCY=SILENT",sep="")
     write.table(samToFastQ, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(samToFastQ)
 
     # fished reads
     if(fishing.step){
       write.table(paste('\nget partially matching reads and turn fished sam into fastq at ', date(), '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
-      get.partially.matching.reads(workDir, regionDir, BAMfile)
+      get.partially.matching.reads(workDir, regionDir, BAMDir, BAMfile)
       write.table(paste('\ncombine chr6 reads with fished reads at ', date(), '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
       chr6.f1   <- paste(regionDir,"/",BAMid,".chr6region.1.fastq", sep = '')
       chr6.f2   <- paste(regionDir,"/",BAMid,".chr6region.2.fastq", sep = '')
@@ -783,7 +675,7 @@ if(mapping.step){
     system(convertToBam)
     
     # sort
-    sortBAM <- paste("java -jar ",GATKDir,"/SortSam.jar"," I=",regionDir, '/', BAMid, '.chr6region.patient.reference.hlas.bam'," ","O=",regionDir,"/",BAMid,".chr6region.patient.reference.hlas.csorted.bam", " SORT_ORDER=coordinate",sep="")
+    sortBAM <- paste("java -jar ",GATKDir," SortSam "," I=",regionDir, '/', BAMid, '.chr6region.patient.reference.hlas.bam'," ","O=",regionDir,"/",BAMid,".chr6region.patient.reference.hlas.csorted.bam", " SORT_ORDER=coordinate",sep="")
     write.table(sortBAM, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     system(sortBAM)
     
@@ -804,7 +696,8 @@ if(mapping.step){
     
     hlaBAMfile <- paste(regionDir, '/', BAMid, '.chr6region.patient.reference.hlas.csorted.noduplicates.filtered.bam', sep = '')
     
-    for (allele in hlaAlleles){
+    for (allele in hlaAlleles)
+    {
       
       write.table(paste('\nget HLA specific SAM for allele: ', allele,  ' at ', date(), '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
       
@@ -823,7 +716,7 @@ if(mapping.step){
       # and filter out reads that have too many events -- has to be done here because some reads map to multiple alleles
       passed.reads <- count.events(paste(regionDir, '/', BAMid, '.type.', allele, '.bam', sep = ''), n = numMisMatch)
       write.table(passed.reads, file = paste(regionDir, '/', BAMid, '.', allele, '.passed.reads.txt', sep = ''), sep = '\t', quote = FALSE, row.names = FALSE, col.names = FALSE)
-      extractCMD <- paste("java -jar ",GATKDir,"/FilterSamReads.jar ", "I=",  regionDir, '/', BAMid, '.type.', allele, '.bam' , " FILTER=includeReadList READ_LIST_FILE=", regionDir, "/", BAMid, '.', allele, ".passed.reads.txt", ' OUTPUT=', regionDir, '/', BAMid, '.type.', allele, '.filtered.bam', sep = '')
+      extractCMD <- paste("java -jar ",GATKDir," FilterSamReads ", "I=",  regionDir, '/', BAMid, '.type.', allele, '.bam' , " FILTER=includeReadList READ_LIST_FILE=", regionDir, "/", BAMid, '.', allele, ".passed.reads.txt", ' OUTPUT=', regionDir, '/', BAMid, '.type.', allele, '.filtered.bam', sep = '')
       write.table(extractCMD, file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
       system(extractCMD)
 
@@ -851,14 +744,12 @@ for (region in regions)
   regionDir <- paste(workDir, '/', region, sep = '')
   BAMfiles  <- grep('filtered.bam$', grep('type',list.files(regionDir),value=TRUE),value=TRUE)
 
-
-  if(paste(region, '.bam', sep = '') == normalBAMfile){
+  if(paste(BAMDir, '/', region, '.bam', sep = '') == normalBAMfile){
     type <- 'normal'
   } else{
     type <- 'tumor'
   }
-
-
+  
   #let's get pileup files for each bam
   for (BAMfile in c(BAMfiles))
   {      
@@ -880,20 +771,18 @@ for (region in regions)
 # also extract number of unique reads sequenced in tumor and normal
 if(runWithNormal){
 
-  ## normalName <- regions[which(paste(BAMDir, '/', regions, '.bam', sep = '') == normalBAMfile)]
-  normalName = gsub(".bam", "", normalBAMfile)
+  normalName <- regions[which(paste(BAMDir, '/', regions, '.bam', sep = '') == normalBAMfile)]
   
-
   if(!override){
-    regionUniqMappedRegions <- getUniqMapReads(workDir = workDir, BAMs = c(tumorBAMfile, normalBAMfile), override = FALSE)
+    regionUniqMappedRegions <- getUniqMapReads(workDir = workDir, BAMDir = BAMDir, override = FALSE)
   }
   if(override){
-    regionUniqMappedRegions <- getUniqMapReads(workDir = workDir, BAMs= c(tumorBAMfile, normalBAMfile), override = TRUE, overrideDir = overrideDir) 
+    regionUniqMappedRegions <- getUniqMapReads(workDir = workDir, BAMDir = BAMDir, override = TRUE, overrideDir = overrideDir) 
   }
 
   # this will need to change if normal BAM doesn't have GL in name
   #GermLineUniqMappedReads <- regionUniqMappedRegions[[grep("GL",names(regionUniqMappedRegions),value=TRUE)]]
-  GermLineUniqMappedReads <- regionUniqMappedRegions[[grep(normalName, names(regionUniqMappedRegions),value=TRUE)]]
+  GermLineUniqMappedReads <- regionUniqMappedRegions[[grep(normalName,names(regionUniqMappedRegions),value=TRUE)]]
 
 }
 
@@ -903,8 +792,7 @@ if(runWithNormal){
 # compare coverage between alleles # 
 ####################################
 
-## normalName <- regions[which(paste(BAMDir, '/', regions, '.bam', sep = '') == normalBAMfile)]
-normalName = gsub(".bam", "", normalBAMfile)
+normalName <- regions[which(paste(BAMDir, '/', regions, '.bam', sep = '') == normalBAMfile)]
 
 # let's load the winners
 # next, we can look at each mpileupFile, and assess whether we see differences in coverage between the two. 
@@ -913,7 +801,8 @@ PatientOutPut <- c()
 
 for (region in regions)
 {
-  if(paste(region, '.bam', sep = '') == normalBAMfile){
+
+  if(paste(BAMDir, '/', region, '.bam', sep = '') == normalBAMfile){
     next
   }
   
@@ -933,7 +822,6 @@ for (region in regions)
     write.table(paste('\nanalyzing coverage differences in region: ', region, ' at ', date(), '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
     
     HLAoutPut <- c()
-
     
     for (HLA_gene in c('hla_a','hla_b','hla_c'))
     {
@@ -952,7 +840,6 @@ for (region in regions)
       {
         next
       }
-
       HLA_A_type1 <- HLA_As[1]
       HLA_A_type2 <- HLA_As[2]
       
@@ -960,7 +847,6 @@ for (region in regions)
       HLA_type1Fasta <- hlaFasta[[HLA_A_type1]]
       HLA_type2Fasta <- hlaFasta[[HLA_A_type2]]
       
-      print
       #perform local pairwise alignement
       {
         seq1 <- PasteVector(toupper(HLA_type1Fasta),sep="")
@@ -980,12 +866,13 @@ for (region in regions)
         }
       }
       
-
+      
+        
       #load the normal and tumour for each type
       #HLAtype 1 coverage
       {
+        
         HLA_A_type1normalLoc <- grep(pattern = HLA_A_type1, x = list.files(workDir, pattern = "normal.mpileup", full.names = TRUE), value = TRUE)
-
         if(runWithNormal){
           HLA_A_type1normal <- read.table(HLA_A_type1normalLoc ,sep="\t",stringsAsFactors=FALSE,quote="",fill=TRUE)
         }
@@ -995,11 +882,7 @@ for (region in regions)
           HLA_A_type1normal$V4 <- as.numeric(HLA_A_type1normal$V4)
         }
         rownames(HLA_A_type1normal) <- HLA_A_type1normal$V2
-
-        ## HACK
-        if (region != normalName){
-          HLA_A_type1tumor  <- read.table(paste(workDir, "/",region,".",HLA_A_type1,".","tumor.mpileup",sep=""),sep="\t",stringsAsFactors=FALSE,quote="",fill=TRUE)
-        }
+        HLA_A_type1tumor  <- read.table(paste(workDir, "/",region,".",HLA_A_type1,".","tumor.mpileup",sep=""),sep="\t",stringsAsFactors=FALSE,quote="",fill=TRUE)
         rownames(HLA_A_type1tumor) <- HLA_A_type1tumor$V2
         
         #apply minimum coverage thresholds (we only apply this to the normal for now)
@@ -1031,9 +914,7 @@ for (region in regions)
           HLA_A_type2normal$V4 <- as.numeric(HLA_A_type2normal$V4)
         }
         rownames(HLA_A_type2normal) <- HLA_A_type2normal$V2
-        if (region != normalName){
-          HLA_A_type2tumor  <- read.table(paste(workDir, "/",region,".",HLA_A_type2,".","tumor.mpileup",sep=""),sep="\t",stringsAsFactors=FALSE,quote="",fill=TRUE)
-        }
+        HLA_A_type2tumor  <- read.table(paste(workDir, "/",region,".",HLA_A_type2,".","tumor.mpileup",sep=""),sep="\t",stringsAsFactors=FALSE,quote="",fill=TRUE)
         rownames(HLA_A_type2tumor) <- HLA_A_type2tumor$V2
         
         #apply minimum coverage thresholds (we only apply this to the normal for now)
@@ -1182,6 +1063,7 @@ for (region in regions)
         
       }
       
+
       if(extractUniqueReads == TRUE) {
         
         # use the same mismatch positions, already have the bed to get reads that do overlap a mismatch
@@ -1659,8 +1541,7 @@ for (region in regions)
       }
       if(!exists('regionSpecOutPut')){
         write.table(paste('\ncoverageStep did not run to completion for: ', HLA_gene, ' in ', region, '! ', '\n', sep = ''), file = log.name, quote = FALSE, row.names = FALSE, col.names = FALSE, append = TRUE)
-        message('ERROR: coverageStep did not run to completion!')
-        quit(status=0)
+        stop('coverageStep did not run to completion!')
       }
 
 
@@ -2172,14 +2053,16 @@ for (region in regions)
 
 
 
-HLAoutLoc <- paste(workDir, '/', full.patient,'.',minCoverageFilter,".DNA.HLAlossPrediction_CI.txt",sep="")
+# write the output
+HLAoutLoc <- paste(workDir, '/', full.patient,'.',minCoverageFilter,".DNA.HLAlossPrediction_CI.xls",sep="")
 write.table(PatientOutPut,file=HLAoutLoc,sep="\t",quote=FALSE,col.names=TRUE,row.names=FALSE)
 
 if(performIntegerCopyNum)
 {
-  HLABAFsummaryLoc <- paste(workDir, '/', full.patient,'.', minCoverageFilter,".DNA.IntegerCPN_CI.txt",sep="")
+  HLABAFsummaryLoc <- paste(workDir, '/', full.patient,'.', minCoverageFilter,".DNA.IntegerCPN_CI.xls",sep="")
   write.table(combinedTable,file=HLABAFsummaryLoc,sep="\t",quote=FALSE,col.names=TRUE,row.names=FALSE)
 }
+
 
 
 # and clean up tmp files

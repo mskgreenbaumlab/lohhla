@@ -1,0 +1,147 @@
+$patientId
+[1] "example"
+
+$outputDir
+[1] "/work/greenbaum/users/lih7/test/lohhla_test"
+
+$normalBAMfile
+[1] "/work/greenbaum/software/lohhla/example-file/bam/example_BS_GL_sorted.bam"
+
+$BAMDir
+[1] "/work/greenbaum/software/lohhla/example-file/bam"
+
+$hlaPath
+[1] "/work/greenbaum/software/lohhla/example-file/hlas"
+
+$HLAfastaLoc
+[1] "/work/greenbaum/software/lohhla/data/example.patient.hlaFasta.fa"
+
+$CopyNumLoc
+[1] "/work/greenbaum/software/lohhla/example-file/solutions.txt"
+
+$overrideDir
+[1] "FALSE"
+
+$minCoverageFilter
+[1] 10
+
+$kmerSize
+[1] 50
+
+$numMisMatch
+[1] 1
+
+$mappingStep
+[1] TRUE
+
+$fishingStep
+[1] TRUE
+
+$plottingStep
+[1] TRUE
+
+$coverageStep
+[1] TRUE
+
+$cleanUp
+[1] FALSE
+
+$novoDir
+[1] "/juno/work/greenbaum/software/modules/novocraft/3.07.00"
+
+$gatkDir
+[1] "/work/greenbaum/software/modules/picard/2.11.0/picard.jar"
+
+$HLAexonLoc
+[1] "~/lohhla/data/hla.dat"
+
+$ignoreWarnings
+[1] TRUE
+
+$help
+[1] FALSE
+
+[1] "example"
+1
+
+------------------------------------------------------------
+Sender: LSF System <lsfadmin@jg01>
+Subject: Job 84611480[1]: <lohhla[1]> in cluster <juno> Exited
+
+Job <lohhla[1]> was submitted from host <conifold> by user <lih7> in cluster <juno> at Fri Jun 25 16:15:29 2021
+Job was executed on host(s) <jg01>, in queue <general>, as user <lih7> in cluster <juno> at Fri Jun 25 16:15:36 2021
+</home/lih7> was used as the home directory.
+</work/greenbaum/software/lohhla/example-file> was used as the working directory.
+Started at Fri Jun 25 16:15:36 2021
+Terminated at Fri Jun 25 16:15:40 2021
+Results reported at Fri Jun 25 16:15:40 2021
+
+Your job looked like:
+
+------------------------------------------------------------
+# LSBATCH: User input
+#!/bin/bash
+#BSUB -J lohhla[1]
+#BSUB -n 1
+#BSUB -R rusage[mem=2]
+#BSUB -W 01:00
+#BSUB -o logs/my_job_%J_%I.stdout -e logs/my_job_%J_%I.err
+
+module load bedtools
+module load samtools
+module load R/R-4.0.4 # for R package requirements
+module load novocraft
+module load java/1.7.0_80
+module load picard/2.11.0
+module load jellyfish
+
+# If these commands are not already in your path, they must be added or pointed to
+#alias samtools=/path/to/samtools
+#alias jellyfish=/path/to/jellyfish
+#alias bedtools=/path/to/bedtools
+lohhla_dir=/work/greenbaum/software/lohhla
+
+Rscript $lohhla_dir/LOHHLAscript.R  \
+--patientId example  \
+--outputDir /work/greenbaum/users/lih7/test/lohhla_test/  \
+--normalBAMfile /work/greenbaum/software/lohhla/example-file/bam/example_BS_GL_sorted.bam  \
+--BAMDir $lohhla_dir/example-file/bam/   \
+--hlaPath $lohhla_dir/example-file/hlas \
+--HLAfastaLoc $lohhla_dir/data/example.patient.hlaFasta.fa \
+--CopyNumLoc $lohhla_dir/example-file/solutions.txt \
+--mappingStep TRUE \
+--minCoverageFilter 10 \
+--fishingStep TRUE \
+--cleanUp FALSE \
+--gatkDir $PICARDJAR \
+--novoDir /juno/work/greenbaum/software/modules/novocraft/3.07.00/
+
+
+
+
+
+------------------------------------------------------------
+
+Exited with exit code 1.
+
+Resource usage summary:
+
+    CPU time :                                   2.64 sec.
+    Max Memory :                                 -
+    Average Memory :                             -
+    Total Requested Memory :                     2.00 GB
+    Delta Memory :                               -
+    Max Swap :                                   -
+    Max Processes :                              4
+    Max Threads :                                5
+    Run time :                                   5 sec.
+    Turnaround time :                            11 sec.
+
+The output (if any) is above this job summary.
+
+
+
+PS:
+
+Read file <logs/my_job_84611480_1.err> for stderr output of this job.
+

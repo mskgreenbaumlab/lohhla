@@ -16,7 +16,7 @@ FORWARD OR PROVIDE A COPY OF THE LOHHLA TOOL TO ANY OTHER PERSON OR PARTY.   NO 
 THE LOHHLA TOOL OR ANY RESULTS ARISING THEREON BY YOU OR ANY THIRD PARTY.  COMMERCIAL USE OF THIS TOOL FOR ANY PURPOSE IS NOT PERMITTED.  
 ALL COMMERCIAL USE OF THE TOOL OR ANY MODIFICATION OR DERIVATIVE OF THE TOOL, INCLUDING TRANSFER, SALE OR LICENCE TO A COMMERCIAL THIRD PARTY OR 
 USE ON BEHALF OF A COMMERCIAL THIRD PARTY (INCLUDING BUT NOT LIMITED TO USE AS PART OF A SERVICE SUPPLIED TO ANY THIRD PARTY FOR FINANCIAL REWARD) 
-REQUIRES A LICENCE.  FOR FURTHER INFORMATION PLEASE EMAIL Eileen Clark eileen.clark@crick.ac.uk. 
+REQUIRES A LICENCE. FOR FURTHER INFORMATION PLEASE EMAIL translation@crick.ac.uk.
  
 ### What do I need to install to run LOHHLA? ###
 
@@ -55,63 +55,63 @@ USAGE: Rscript /location/of/LOHHLA/script  [OPTIONS]
 
 OPTIONS:
 
-	-id CHARACTER, --patientId=CHARACTER
+	-i CHARACTER, --patientId=CHARACTER
 		patient ID
 
 	-o CHARACTER, --outputDir=CHARACTER
 		location of output directory
 
-	-nBAM CHARACTER, --normalBAMfile=CHARACTER
+	-n CHARACTER, --normalBAMfile=CHARACTER
 		normal BAM file
 		can be FALSE to run without normal sample
 
-	-BAM CHARACTER, --BAMDir=CHARACTER
+	-b CHARACTER, --BAMDir=CHARACTER
 		location of all BAMs to test
 
-	-hla CHARACTER, --hlaPath=CHARACTER
+	-a CHARACTER, --hlaPath=CHARACTER
 		location to patient HLA calls
 
-	-hlaLoc CHARACTER, --HLAfastaLoc=CHARACTER
+	-l CHARACTER, --HLAfastaLoc=CHARACTER
 		location of HLA FASTA [default=~/lohhla/data/hla_all.fasta]
 
-	-cn CHARACTER, --CopyNumLoc=CHARACTER
+	-c CHARACTER, --CopyNumLoc=CHARACTER
 		location to patient purity and ploidy output
 		can be FALSE to only estimate allelic imbalance
 
-	-ov CHARACTER, --overrideDir=CHARACTER
+	-v CHARACTER, --overrideDir=CHARACTER
 		location of flagstat information if already run [default= FALSE]
 
-	-mc CHARACTER, --minCoverageFilter=CHARACTER
+	-m CHARACTER, --minCoverageFilter=CHARACTER
 		minimum coverage at mismatch site [default= 30]
 
-	-kmer CHARACTER, --kmerSize=CHARACTER
+	-k CHARACTER, --kmerSize=CHARACTER
 		size of kmers to fish with [default= 50]
 
-	-mm CHARACTER, --numMisMatch=CHARACTER
+	-s CHARACTER, --numMisMatch=CHARACTER
 		number of mismatches allowed in read to map to HLA allele [default= 1]
 
-	-ms CHARACTER, --mappingStep=CHARACTER
+	-p CHARACTER, --mappingStep=CHARACTER
 		does mapping to HLA alleles need to be done [default= TRUE]
 
-	-fs CHARACTER, --fishingStep=CHARACTER
+	--fishingStep=LOGICAL
 		if mapping is performed, also look for fished reads matching kmers of size kmerSize [default= TRUE]
 
-	-ps CHARACTER, --plottingStep=CHARACTER
+	--plottingStep=LOGICAL
 		are plots made [default= TRUE]
 
-	-cs CHARACTER, --coverageStep=CHARACTER
+	--coverageStep=LOGICAL
 		are coverage differences analyzed [default= TRUE]
 
-	-cu CHARACTER, --cleanUp=CHARACTER
+	--cleanUp=LOGICAL
 		remove temporary files [default= TRUE]
 
-	-no CHARACTER, --novoDir=CHARACTER
+	-d CHARACTER, --novoDir=CHARACTER
 		path to novoalign executable [default= ]
 
-	-ga CHARACTER, --gatkDir=CHARACTER
+	-g CHARACTER, --gatkDir=CHARACTER
 		path to GATK executable [default= ]
 
-	-ex CHARACTER, --HLAexonLoc=CHARACTER
+	-e CHARACTER, --HLAexonLoc=CHARACTER
 		HLA exon boundaries for plotting [default=~/lohhla/data/hla.dat]
 
 	-w CHARACTER, --ignoreWarnings=CHARACTER

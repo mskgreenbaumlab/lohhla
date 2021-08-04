@@ -1,19 +1,47 @@
 #!/bin/bash
+#BSUB -J lohhla[1]
+#BSUB -n 1
+#BSUB -R rusage[mem=2]
+#BSUB -W 01:00
+#BSUB -o logs/my_job_%J_%I.stdout -e logs/my_job_%J_%I.err
 
-module load BEDTools/2.26.0-foss-2016b
-module load SAMtools/1.3.1-foss-2016b
-module load R/3.3.1-foss-2016b-bioc-3.3-libX11-1.6.3 # for R package requirements
-module load novoalign/3.07.00
-module load TracerX-Picard-GATK/0.1-Java-1.7.0_80
-module load Jellyfish/2.2.6-foss-2016b
-
-# If these commands are not already in your path, they must be added or pointed to
-#alias samtools=/path/to/samtools
-#alias jellyfish=/path/to/jellyfish
-#alias bedtools=/path/to/bedtools
+module load bedtools
+module load samtools
+module load R/R-4.0.4 # for R package requirements
+module load novocraft
+module load java
+module load picard/2.11.0
+module load jellyfish
+module load singularity/3.6.2
 
 
-Rscript /location/of/lohhla/repository/lohhla/LOHHLAscript.R --patientId example --outputDir /out/example-out/ --normalBAMfile /location/of/lohhla/repository/lohhla/example-file/bam/example_BS_GL_sorted.bam --BAMDir /location/of/lohhla/repository/lohhla/example-file/bam/  --hlaPath /location/of/lohhla/repository/lohhla/example-file/hlas --HLAfastaLoc /location/of/lohhla/repository/data/example.patient.hlaFasta.fa --CopyNumLoc /location/of/lohhla/repository/lohhla/example-file/solutions.txt --mappingStep TRUE --minCoverageFilter 10 --fishingStep TRUE --cleanUp FALSE --gatkDir /your/GATK/bin/ --novoDir /your/novoalign/bin/
+
+
+outputPrefix=example
+normal_id=example_BS_GL_sorted
+tumor_id=example_tumor_sorted
+bamNormal=/lohhla/example-file/bam/example_BS_GL_sorted.bam
+bamTumor=/lohhla/example-file/bam/example_tumor_sorted.bam
+hlaFasta=/juno/work/greenbaum/software/polysolver/v4/data/abc_complete.fasta
+hlaDat=/juno/work/greenbaum/database/HLA/hla.dat
+tumor_purity_ploidy=/juno/work/greenbaum/users/lih7/test/lohhla_test/lohhla/example-file/tumor_purity_ploidy.txt
+hla_file=/juno/work/greenbaum/users/lih7/test/lohhla_test/lohhla/example-file/hlas
+
+img_path=/juno/work/greenbaum/software/images/lohhla_1.1.3.sif
+singularity exec --bind /juno/work $img_path \
+    Rscript --no-init-file /juno/work/greenbaum/users/lih7/test/lohhla_test/lohhla/LOHHLAscript.R \
+        --patientId ${outputPrefix} \
+        --normalID ${normal_id} \
+        --tumorID ${tumor_id} \
+        --normalBAMfile ${bamNormal} \
+        --tumorBAMfile ${bamTumor} \
+        --HLAfastaLoc ${hlaFasta} \
+        --HLAexonLoc ${hlaDat} \
+        --CopyNumLoc $tumor_purity_ploidy \
+        --hlaPath $hla_file \
+        --gatkDir /picard-tools \
+        --novoDir /opt/conda/bin \
+        --outputDir /juno/work/home/$USER/new_results
 
 
 

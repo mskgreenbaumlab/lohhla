@@ -1,0 +1,2 @@
+tumorPurity	tumorPloidy
+example_tumor_sorted	0.8	2

@@ -12,27 +12,36 @@ module load novocraft
 module load java
 module load picard/2.11.0
 module load jellyfish
+module load singularity/3.6.2
 
-# If these commands are not already in your path, they must be added or pointed to
-#alias samtools=/path/to/samtools
-#alias jellyfish=/path/to/jellyfish
-#alias bedtools=/path/to/bedtools
-lohhla_dir=/work/greenbaum/software/lohhla
 
-Rscript $lohhla_dir/LOHHLAscript.R  \
---patientId example  \
---outputDir /work/greenbaum/users/lih7/test/lohhla_test/  \
---normalBAMfile /work/greenbaum/software/lohhla/example-file/bam/example_BS_GL_sorted.bam  \
---BAMDir $lohhla_dir/example-file/bam/   \
---hlaPath $lohhla_dir/example-file/hlas \
---HLAfastaLoc $lohhla_dir/data/example.patient.hlaFasta.fa \
---CopyNumLoc $lohhla_dir/example-file/solutions.txt \
---mappingStep TRUE \
---minCoverageFilter 10 \
---fishingStep TRUE \
---cleanUp FALSE \
---gatkDir $PICARDJAR \
---novoDir /juno/work/greenbaum/software/modules/novocraft/3.07.00/
+
+
+outputPrefix=example
+normal_id=example_BS_GL_sorted
+tumor_id=example_tumor_sorted
+bamNormal=/lohhla/example-file/bam/example_BS_GL_sorted.bam
+bamTumor=/lohhla/example-file/bam/example_tumor_sorted.bam
+hlaFasta=/juno/work/greenbaum/software/polysolver/v4/data/abc_complete.fasta
+hlaDat=/juno/work/greenbaum/database/HLA/hla.dat
+tumor_purity_ploidy=/juno/work/greenbaum/users/lih7/test/lohhla_test/lohhla/example-file/tumor_purity_ploidy.txt
+hla_file=/juno/work/greenbaum/users/lih7/test/lohhla_test/lohhla/example-file/hlas
+
+img_path=/juno/work/greenbaum/software/images/lohhla_1.1.3.sif
+singularity exec --bind /juno/work $img_path \
+    Rscript --no-init-file /juno/work/greenbaum/users/lih7/test/lohhla_test/lohhla/LOHHLAscript.R \
+        --patientId ${outputPrefix} \
+        --normalID ${normal_id} \
+        --tumorID ${tumor_id} \
+        --normalBAMfile ${bamNormal} \
+        --tumorBAMfile ${bamTumor} \
+        --HLAfastaLoc ${hlaFasta} \
+        --HLAexonLoc ${hlaDat} \
+        --CopyNumLoc $tumor_purity_ploidy \
+        --hlaPath $hla_file \
+        --gatkDir /picard-tools \
+        --novoDir /opt/conda/bin \
+        --outputDir /juno/work/home/$USER/new_results
 
 
 

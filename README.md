@@ -1,4 +1,5 @@
-# README #
+# README # ## GREENBAUM Lab Version ##
+
 
 Immune evasion is a hallmark of cancer. Losing the ability to present productive tumor neoantigens could facilitate evasion from immune predation. 
 An integral part of neoantigen presentation is the HLA class I molecule, which presents epitopes to T-cells on the cell surface. Thus, loss of an 
@@ -8,9 +9,13 @@ copy number calling using conventional copy number tools.
 Here, we present **LOHHLA**, **L**oss **O**f **H**eterozygosity in **H**uman **L**eukocyte **A**ntigen, a computational tool to evaluate HLA loss 
 using next-generation sequencing data. 
 
+<p align="center">
+  <img src="./etc/logo.png" alt="LOHHLA Logo" width="738">
+</p>
+
 ### LICENCE ###
 
-THIS LOHHLA TOOL IS PROTECTED BY COPYRIGHT AND IS SUBJECT TO PATENT APPLICATION PCT/GB2018/052004.  THE TOOL IS PROVIDED ìAS ISî FOR INTERNAL 
+THIS LOHHLA TOOL IS PROTECTED BY COPYRIGHT AND IS SUBJECT TO PATENT APPLICATION PCT/GB2018/052004.  THE TOOL IS PROVIDED ‚ÄúAS IS‚Äù FOR INTERNAL 
 NON-COMMERCIAL ACADEMIC RESEARCH PURPOSES ONLY.  THIS LOHHLA TOOL IS PROVIDED TO YOU AS A PERSONAL COPY SUBJECT TO THESE TERMS AND YOU SHALL NOT 
 FORWARD OR PROVIDE A COPY OF THE LOHHLA TOOL TO ANY OTHER PERSON OR PARTY.   NO RESPONSIBILITY IS ACCEPTED FOR ANY LIABILITY ARISING FROM USE OF 
 THE LOHHLA TOOL OR ANY RESULTS ARISING THEREON BY YOU OR ANY THIRD PARTY.  COMMERCIAL USE OF THIS TOOL FOR ANY PURPOSE IS NOT PERMITTED.  

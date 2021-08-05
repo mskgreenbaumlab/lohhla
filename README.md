@@ -7,8 +7,10 @@ copy number calling using conventional copy number tools.
 
 Here, we present **LOHHLA**, **L**oss **O**f **H**eterozygosity in **H**uman **L**eukocyte **A**ntigen, a computational tool to evaluate HLA loss 
 using next-generation sequencing data. 
-<img src="./etc/logo.png" align="center"
-     alt="LOHHLA logo by Hao Li" width="738">
+
+<p align="center">
+  <img src="./etc/logo.png" alt="LOHHLA logo by Hao Li" width="738">
+</p>
 
 ### LICENCE ###
 

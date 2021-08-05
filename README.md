@@ -9,7 +9,7 @@ Here, we present **LOHHLA**, **L**oss **O**f **H**eterozygosity in **H**uman **L
 using next-generation sequencing data. 
 
 <p align="left">
-  <img src="./etc/logo.png" alt="LOHHLA logo by Hao Li" width="738">
+  <img src="./etc/logo.png" alt="LOHHLA logo by Hao Li" width="800">
 </p>
 
 ### LICENCE ###

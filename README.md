@@ -1,6 +1,6 @@
 # LOHHLA #
 <img src="./etc/logo.png" align="right"
-     alt="LOHHLA logo by Hao Li" width="120" height="178">
+     alt="LOHHLA logo by Hao Li" width="738">
 
 
 Immune evasion is a hallmark of cancer. Losing the ability to present productive tumor neoantigens could facilitate evasion from immune predation. 

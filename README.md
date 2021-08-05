@@ -1,5 +1,5 @@
 # LOHHLA #
-<img src="./etc/logo.png" align="right"
+<img src="./etc/logo.png" align="center"
      alt="LOHHLA logo by Hao Li" width="738">
 
 

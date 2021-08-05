@@ -1,4 +1,6 @@
-# README # ## GREENBAUM Lab Version ##
+# LOHHLA #
+<img src="./etc/logo.png" align="right"
+     alt="LOHHLA logo by Hao Li" width="120" height="178">
 
 
 Immune evasion is a hallmark of cancer. Losing the ability to present productive tumor neoantigens could facilitate evasion from immune predation. 
@@ -9,9 +11,6 @@ copy number calling using conventional copy number tools.
 Here, we present **LOHHLA**, **L**oss **O**f **H**eterozygosity in **H**uman **L**eukocyte **A**ntigen, a computational tool to evaluate HLA loss 
 using next-generation sequencing data. 
 
-<p align="center">
-  <img src="./etc/logo.png" alt="LOHHLA Logo" width="738">
-</p>
 
 ### LICENCE ###
 
@@ -23,6 +22,10 @@ ALL COMMERCIAL USE OF THE TOOL OR ANY MODIFICATION OR DERIVATIVE OF THE TOOL, IN
 USE ON BEHALF OF A COMMERCIAL THIRD PARTY (INCLUDING BUT NOT LIMITED TO USE AS PART OF A SERVICE SUPPLIED TO ANY THIRD PARTY FOR FINANCIAL REWARD) 
 REQUIRES A LICENCE.  FOR FURTHER INFORMATION PLEASE EMAIL Eileen Clark eileen.clark@crick.ac.uk. 
  
+#### Greenbaum Lab Version ####
+This LOHHLA Version was adapted for Greenbaum Lab usage on Juno Cluster. Certain changes were made to run LOHHLA pipeline with tumor/normal pair inputs and be compatible with neoantigen pipeline.
+
+
 ### What do I need to install to run LOHHLA? ###
 
 Please ensure a number of dependencies are first installed. These include:
@@ -43,6 +46,31 @@ Within R, the following packages are required:
 
 LOHHLA also requires an HLA fasta file. This can be obtained from Polysolver (http://archive.broadinstitute.org/cancer/cga/polysolver)
 
+
+### What do I need to install to run LOHHLA? ###
+Method 1: Install following dependencies
+
+Please ensure a number of dependencies are first installed. These include:
+
+* BEDTools (http://bedtools.readthedocs.io/en/latest/)
+* SAMtools (http://samtools.sourceforge.net/)
+* Novalign (http://www.novocraft.com/products/novoalign/)
+* Picard (http://broadinstitute.github.io/picard/)
+* R (https://www.r-project.org/about.html)
+
+Within R, the following packages are required:
+
+* seqinr (https://CRAN.R-project.org/package=seqinr)
+* Biostrings (http://bioconductor.org/packages/release/bioc/html/Biostrings.html)
+* beeswarm (https://CRAN.R-project.org/package=beeswarm)
+* zoo (https://cran.r-project.org/package=zoo)
+* Rsamtools (http://bioconductor.org/packages/release/bioc/html/Rsamtools.html)
+
+LOHHLA also requires an HLA fasta file. This can be obtained from Polysolver (http://archive.broadinstitute.org/cancer/cga/polysolver)
+
+Method 2: Build a singularity container. This prebuilt image will help install all dependencies and lohhla repo.
+singularity pull docker://cmopipeline/lohhla
+
 ### How do I install LOHHLA? ###
 
 To install LOHHLA, simply clone the repository:
@@ -62,73 +90,62 @@ OPTIONS:
 
 	-id CHARACTER, --patientId=CHARACTER
 		patient ID
-
+	-normalID CHARACTER, --normalID=CHARACTER
+		Normal sample ID
+	-tumorID CHARACTER, --tumorID=CHARACTER
+		Tumor sample ID
+	-normalBAMfile CHARACTER, --normalBAMfile=CHARACTER
+		BAM File path for normal sample
+	-tumorBAMfile CHARACTER, --tumorBAMfile=CHARACTER
+		BAM File path for tumor sample
 	-o CHARACTER, --outputDir=CHARACTER
 		location of output directory
-
-	-nBAM CHARACTER, --normalBAMfile=CHARACTER
-		normal BAM file
-		can be FALSE to run without normal sample
-
-	-BAM CHARACTER, --BAMDir=CHARACTER
-		location of all BAMs to test
-
 	-hla CHARACTER, --hlaPath=CHARACTER
 		location to patient HLA calls
-
 	-hlaLoc CHARACTER, --HLAfastaLoc=CHARACTER
 		location of HLA FASTA [default=~/lohhla/data/hla_all.fasta]
-
 	-cn CHARACTER, --CopyNumLoc=CHARACTER
 		location to patient purity and ploidy output
 		can be FALSE to only estimate allelic imbalance
-
 	-ov CHARACTER, --overrideDir=CHARACTER
 		location of flagstat information if already run [default= FALSE]
-
 	-mc CHARACTER, --minCoverageFilter=CHARACTER
 		minimum coverage at mismatch site [default= 30]
-
 	-kmer CHARACTER, --kmerSize=CHARACTER
 		size of kmers to fish with [default= 50]
-
 	-mm CHARACTER, --numMisMatch=CHARACTER
 		number of mismatches allowed in read to map to HLA allele [default= 1]
-
 	-ms CHARACTER, --mappingStep=CHARACTER
 		does mapping to HLA alleles need to be done [default= TRUE]
-
 	-fs CHARACTER, --fishingStep=CHARACTER
 		if mapping is performed, also look for fished reads matching kmers of size kmerSize [default= TRUE]
-
 	-ps CHARACTER, --plottingStep=CHARACTER
 		are plots made [default= TRUE]
-
 	-cs CHARACTER, --coverageStep=CHARACTER
 		are coverage differences analyzed [default= TRUE]
-
 	-cu CHARACTER, --cleanUp=CHARACTER
 		remove temporary files [default= TRUE]
-
 	-no CHARACTER, --novoDir=CHARACTER
 		path to novoalign executable [default= ]
-
 	-ga CHARACTER, --gatkDir=CHARACTER
 		path to GATK executable [default= ]
-
 	-ex CHARACTER, --HLAexonLoc=CHARACTER
 		HLA exon boundaries for plotting [default=~/lohhla/data/hla.dat]
-
 	-w CHARACTER, --ignoreWarnings=CHARACTER
 		continue running with warnings [default= TRUE]
-
 	-h, --help
 		Show this help message and exit            
- 
 
+### What are the input for LOHHLA? ###
+* normalBAMfile/tumorBAMfile: A pair of tumor / normal sample BAM files. Provide full path to the bam files. 
+* HLAfastaLoc: path to abc_complete.fasta for polysolver. it's included in references/abc_complete.fasta
+* HLAexonLoc: path to hla.dat file. Download it from https://www.ebi.ac.uk/ipd/imgt/hla/download.html
+* CopyNumLoc: path to tumor_purity_ploidy.txt file which contains purity/ploidy values for the tumor sample. This can be calculated from [MSK facets](https://github.com/mskcc/facets/tree/master/R).
+* hlaPath: path for hla list (eg. example-files/hlas). This list can be derived from polysolver's final result (winners.hla.txt)
+ 
 ### What is the output of LOHHLA? ###
 
-LOHHLA produces multiple different files (see correct-example-out for an example). To determine HLA LOH in a given sample, the most relevant output is the file which ends '.HLAlossPrediction CI.xls'. 
+LOHHLA produces multiple different files (see correct-example-out for an example). To determine HLA LOH in a given sample, the most relevant output is the file which ends '.HLAlossPrediction CI.txt'. 
 The most relavant columns are:
 
 	HLA_A_type1  						 - the identity of allele 1
@@ -188,7 +205,7 @@ For a full definition of the columns, see below, in each case whether the column
 Example data is included in the LOHHLA repository. To run LOHHLA on the example dataset, alter the "example.sh" script to match your local file structure and ensure the requisite dependencies are available / loaded.
 The --HLAfastaLoc, --gatkDir, and --novoDir file paths should also be updated to the corresponding locations.
 File paths must be full paths. Run "example.sh" and the output should match that found in the "correct-example-out" directory provided.
-All BAM files (normal and tumour) should be found in or linked to the same directory.
+bash example-file/example.sh will kick off LOHHLA pipeline within the container. Remember to mount the required folder (eg.for refrence, input directory for bam files, outpu directory,etc). 
 
 ### Who do I talk to? ###
 
@@ -199,4 +216,3 @@ If you have any issues with lohhla, please send an email to lohhla@gmail.com
 If you use LOHHLA in your research, please cite the following paper:
 
 McGranahan et al., Allele-Specific HLA Loss and Immune Escape in Lung Cancer Evolution, Cell (2017), https://doi.org/10.1016/j.cell.2017.10.001
-

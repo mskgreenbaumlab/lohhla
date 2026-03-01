@@ -10,7 +10,7 @@ using next-generation sequencing data.
 
 ### LICENCE ###
 
-THIS LOHHLA TOOL IS PROTECTED BY COPYRIGHT AND IS SUBJECT TO PATENT APPLICATION PCT/GB2018/052004.  THE TOOL IS PROVIDED “AS IS” FOR INTERNAL 
+THIS LOHHLA TOOL IS PROTECTED BY COPYRIGHT AND IS SUBJECT TO PATENT APPLICATION PCT/GB2018/052004.  THE TOOL IS PROVIDED ï¿½AS ISï¿½ FOR INTERNAL 
 NON-COMMERCIAL ACADEMIC RESEARCH PURPOSES ONLY.  THIS LOHHLA TOOL IS PROVIDED TO YOU AS A PERSONAL COPY SUBJECT TO THESE TERMS AND YOU SHALL NOT 
 FORWARD OR PROVIDE A COPY OF THE LOHHLA TOOL TO ANY OTHER PERSON OR PARTY.   NO RESPONSIBILITY IS ACCEPTED FOR ANY LIABILITY ARISING FROM USE OF 
 THE LOHHLA TOOL OR ANY RESULTS ARISING THEREON BY YOU OR ANY THIRD PARTY.  COMMERCIAL USE OF THIS TOOL FOR ANY PURPOSE IS NOT PERMITTED.  
@@ -184,6 +184,167 @@ Example data is included in the LOHHLA repository. To run LOHHLA on the example 
 The --HLAfastaLoc, --gatkDir, and --novoDir file paths should also be updated to the corresponding locations.
 File paths must be full paths. Run "example.sh" and the output should match that found in the "correct-example-out" directory provided.
 All BAM files (normal and tumour) should be found in or linked to the same directory.
+
+### Running LOHHLA in Docker ###
+
+A `Dockerfile` is provided for containerized execution of LOHHLA. This approach eliminates dependency conflicts and ensures reproducibility across systems.
+
+#### Prerequisites
+
+- Docker installed ([install Docker](https://docs.docker.com/get-docker/))
+
+#### Pulling Pre-built Image from Docker Hub
+
+The LOHHLA image is available on Docker Hub. Pull it directly:
+
+```bash
+docker pull lihao5657/lohhla:greenbaum
+```
+
+#### Building the Docker Image Locally
+
+Alternatively, build the image locally from the repository:
+
+1. (Optional) Place the Novocraft tarball in the repository's `src/` directory:
+```bash
+cp /path/to/novocraftV3.09.03_Linux3.10.tar.gz ./src/
+```
+
+2. Build the image:
+```bash
+docker build -t lohhla:latest -f Dockerfile .
+```
+
+Or with a custom tag:
+```bash
+docker build -t lohhla:v1.0 -f Dockerfile .
+```
+
+#### Testing on Example Data
+
+Run LOHHLA on the included example dataset using the Docker Hub image:
+
+```bash
+docker run --rm \
+  -v $(pwd)/example-file:/data \
+  -v $(pwd)/references:/ref \
+  -v /tmp/lohhla_out:/out \
+  lihao5657/lohhla:greenbaum \
+  Rscript /opt/lohhla/LOHHLAscript.R \
+    --patientId example \
+    --outputDir /out \
+    --normalID example_BS_GL_sorted \
+    --tumorID example_tumor_sorted \
+    --normalBAMfile /data/bam/example_BS_GL_sorted.bam \
+    --tumorBAMfile /data/bam/example_tumor_sorted.bam \
+    --hlaPath /data/hlas \
+    --HLAfastaLoc /ref/abc_complete.fasta \
+    --mappingStep FALSE \
+    --fishingStep FALSE \
+    --plottingStep FALSE \
+    --coverageStep FALSE
+```
+
+The output will be written to `/tmp/lohhla_out/` on your host system.
+
+#### Running on Your Own Data
+
+```bash
+docker run --rm \
+  -v /path/to/your/bams:/bams \
+  -v /path/to/your/hla:/hla \
+  -v /path/to/reference/fasta:/ref \
+  -v /path/to/output:/out \
+  lihao5657/lohhla:greenbaum \
+  Rscript /opt/lohhla/LOHHLAscript.R \
+    --patientId your_sample_id \
+    --outputDir /out \
+    --normalID normal_sample_id \
+    --tumorID tumor_sample_id \
+    --normalBAMfile /bams/normal.bam \
+    --tumorBAMfile /bams/tumor.bam \
+    --hlaPath /hla/hla_calls.txt \
+    --HLAfastaLoc /ref/abc_complete.fasta \
+    --CopyNumLoc /path/to/purity_ploidy.txt \
+    --mappingStep TRUE \
+    --fishingStep TRUE \
+    --plottingStep TRUE \
+    --coverageStep TRUE
+```
+
+#### Converting Docker Image to Singularity
+
+If you use Singularity (common in HPC environments), convert the Docker Hub image:
+
+```bash
+# Pull from Docker Hub and convert to Singularity
+singularity pull lohhla_greenbaum.sif docker://lihao5657/lohhla:greenbaum
+```
+
+This creates a Singularity image file `lohhla_greenbaum.sif` ready for use.
+
+#### Running with Singularity
+
+Example run using the included test data:
+
+```bash
+singularity exec --bind /data1 /data1/greenbab/software/images/lohhla_greenbaum.sif \
+  Rscript /opt/lohhla/LOHHLAscript.R \
+    --patientId example \
+    --outputDir /data1/greenbab/software/lohhla/example_output \
+    --normalID example_BS_GL_sorted \
+    --tumorID example_tumor_sorted \
+    --normalBAMfile /data1/greenbab/software/lohhla/example-file/bam/example_BS_GL_sorted.bam \
+    --tumorBAMfile /data1/greenbab/software/lohhla/example-file/bam/example_tumor_sorted.bam \
+    --hlaPath /data1/greenbab/software/lohhla/example-file/hlas \
+    --HLAfastaLoc /data1/greenbab/software/lohhla/references/abc_complete.fasta \
+    --mappingStep FALSE \
+    --fishingStep FALSE \
+    --plottingStep FALSE \
+    --coverageStep FALSE
+```
+
+For your own data:
+
+```bash
+singularity exec --bind /data1 /data1/greenbab/software/images/lohhla_greenbaum.sif \
+  Rscript /opt/lohhla/LOHHLAscript.R \
+    --patientId your_sample_id \
+    --outputDir /data1/your_output_dir \
+    --normalID normal_sample_id \
+    --tumorID tumor_sample_id \
+    --normalBAMfile /data1/path/to/normal.bam \
+    --tumorBAMfile /data1/path/to/tumor.bam \
+    --hlaPath /data1/path/to/hla_calls.txt \
+    --HLAfastaLoc /data1/path/to/abc_complete.fasta \
+    --mappingStep TRUE \
+    --fishingStep TRUE \
+    --plottingStep TRUE \
+    --coverageStep TRUE
+```
+
+Testing novoalign:
+
+```bash
+singularity exec --bind /data1 /data1/greenbab/software/images/lohhla_greenbaum.sif \
+  novoalign --help
+```
+
+Or interactively:
+
+```bash
+singularity shell --bind /data1 /data1/greenbab/software/images/lohhla_greenbaum.sif
+Singularity> novoalign --help
+Singularity> samtools --version
+Singularity> bedtools --version
+```
+
+#### Container Notes
+
+- The `novoalign` binary is placed in `/usr/local/bin/` and on the container `PATH`.
+- Picard JAR is installed at `/opt/picard/picard.jar`.
+- All required R packages (seqinr, Biostrings, beeswarm, zoo, Rsamtools, optparse) are pre-installed.
+- By default, the container's ENTRYPOINT runs `LOHHLAscript.R` directly; override with `--entrypoint bash` to use the container interactively.
 
 ### Who do I talk to? ###
 
